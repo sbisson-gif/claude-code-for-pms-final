@@ -24,6 +24,24 @@ prompt library built from your own questions.
 
 ### 1.
 
+Yes, pull the September numbers by responder
+
 ### 2.
 
+what prompts would you suggest that I ask to determine the issue/defect?
+
 ### 3.
+
+Is the problem bigger than the aggregate suggests?
+
+### 4.
+
+who should I interview first to help resolve?
+
+### 5.
+
+help me understand what I should do to find the issue
+
+### 6.
+
+Tell me more about the quiet resonders, id like to understand if the wait is causing the miss
