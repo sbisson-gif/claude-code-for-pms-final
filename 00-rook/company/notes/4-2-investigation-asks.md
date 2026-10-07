@@ -22,7 +22,8 @@ Draft, not sent. Data is from `rook-database` (29 Jun to 6 Sep 2026) and the `di
 2. **No decay.** The 2019 TODO in `history.py` asks whether scores should drift back toward neutral. Would that help responders who've stopped being pinged?
 3. **Real scores.** Can you pull the current recent-acceptance scores for the quiet four and for a few top responders (The Gale, Nightwell)? Are scores persisted, or held in memory and reset on restart?
 4. **Weights.** How much does a floored score matter at 0.25 weight, compared with a minute of travel time? Were 0.60/0.25 tested against the 60s wait together, or separately?
-5. **Walkthrough.** Can you take me through `routing.py`, `history.py` and `offer.py`? It's also the start of the written description of how ping decisions are made, which I owe the team.
+5. **Coming back from a low score.** Suppose a responder has been quiet for a month with a low score. As I read the code, nothing restores points over time and nothing lets a handler adjust a score, so the only way back is to get pinged and take about 7 pings in a row (or hold 60% acceptance), which a low rank makes rare. Is there any way back that I can't see in this folder, such as a restart reset, a manual adjustment or something elsewhere in Dispatch? What would you want the route back to be?
+6. **Walkthrough.** Can you take me through `routing.py`, `history.py` and `offer.py`? It's also the start of the written description of how ping decisions are made, which I owe the team.
 
 ## Tone
 Both are "help me understand" conversations. Lead with the data, ask what they see, and don't present a conclusion.
