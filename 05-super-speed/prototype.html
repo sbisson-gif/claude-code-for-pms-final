@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rook Dispatch — a way back for quiet responders (prototype)</title>
+<style>
+  *{box-sizing:border-box}
+  body{font:14px/1.45 system-ui,Segoe UI,sans-serif;margin:0;background:#eef0f3;color:#1f2937}
+  .top{background:#111827;color:#fff;padding:12px 20px}
+  .top h1{font-size:15px;margin:0 0 8px}
+  .row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px}
+  .row span{font-size:12px;opacity:.7;margin-right:4px;min-width:84px}
+  .row button{background:#374151;color:#fff;border:1px solid #4b5563;border-radius:6px;padding:6px 10px;font:inherit;font-size:13px;cursor:pointer}
+  .row button.on{background:#2563eb;border-color:#2563eb}
+  .note{background:#fef3c7;border-bottom:1px solid #f59e0b;padding:6px 20px;font-size:12px}
+  main{display:flex;gap:24px;padding:20px;flex-wrap:wrap;align-items:flex-start}
+  .console{background:#fff;border:1px solid #d1d5db;border-radius:10px;width:680px;max-width:100%}
+  .bar{display:flex;gap:16px;align-items:center;background:#f9fafb;border-bottom:1px solid #e5e7eb;border-radius:10px 10px 0 0;padding:8px 16px;font-size:12px;color:#6b7280;flex-wrap:wrap}
+  .bar b{color:#111827}
+  .pad{padding:16px}
+  h2{margin:0 0 2px;font-size:16px}
+  h3{font-size:12px;margin:18px 0 6px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:7px 8px;border-bottom:1px solid #e5e7eb;text-align:left;vertical-align:top}
+  th{font-size:12px;color:#6b7280;font-weight:600}
+  tr.me td{background:#eff6ff}
+  .chip{display:inline-block;padding:1px 9px;border-radius:10px;font-size:12px;background:#e5e7eb;white-space:nowrap}
+  .chip.q{background:#fde68a}.chip.b{background:#fecaca}.chip.s{background:#bfdbfe}.chip.ok{background:#bbf7d0}
+  .muted{color:#6b7280;font-size:12px}
+  .quote{border-left:3px solid #9ca3af;padding:2px 10px;margin:8px 0;color:#374151;font-size:13px}
+  .actions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+  button.p{background:#2563eb;color:#fff;border:0;border-radius:6px;padding:8px 14px;font:inherit;cursor:pointer}
+  button.p:disabled{background:#9ca3af;cursor:default}
+  button.g{background:#fff;border:1px solid #9ca3af;border-radius:6px;padding:8px 14px;font:inherit;cursor:pointer}
+  .log{border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;margin-top:14px;background:#f9fafb;min-height:44px}
+  .log div{padding:2px 0}
+  .alert{display:none;margin-top:12px;border:1px solid #f59e0b;background:#fffbeb;border-radius:8px;padding:8px 12px}
+  .meter{height:10px;background:#e5e7eb;border-radius:5px;overflow:hidden}
+  .meter i{display:block;height:100%;background:#2563eb;transition:width .4s}
+  .phone{background:#fff;border:9px solid #111827;border-radius:32px;width:310px;min-height:560px;padding:18px 16px}
+  .phone .who{font-size:12px;color:#6b7280;display:flex;justify-content:space-between;margin-bottom:10px}
+  .card{border:1px solid #d1d5db;border-radius:10px;padding:12px;margin:10px 0}
+  .card.hl{border-color:#2563eb;background:#eff6ff}
+  .clock{font-size:44px;font-weight:700;text-align:center;margin:8px 0 0}
+  .two{display:flex;gap:8px;margin-top:12px}
+  .two button{flex:1;padding:12px;border-radius:8px;border:1px solid #9ca3af;background:#fff;font:inherit;cursor:pointer}
+  .two button.go{background:#16a34a;border-color:#16a34a;color:#fff;font-weight:600}
+  .legend{max-width:310px;font-size:12px;color:#6b7280;margin-top:10px}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>Rook Dispatch · A way back for quiet responders</h1>
+  <div class="row" id="cases"></div>
+  <div class="row" id="stages"></div>
+  <div class="row" id="waitRow"></div>
+  <div class="row" id="reachRow"></div>
+</div>
+<div class="note">Prototype with illustrative behaviour. It is not data and not a spec; thresholds for "quiet" and "well placed", and all distances and standing levels, are placeholders. Pick a case and a stage, then click <b>Send callout</b>.</div>
+
+<main>
+  <section class="console">
+    <div class="bar"><b>Rook Dispatch console</b><span id="barHandler"></span><span id="barCallout"></span></div>
+    <div class="pad">
+      <h2>Who we'll ask, in order</h2>
+      <div class="quote" id="quote"></div>
+      <div class="muted" id="orderHint"></div>
+      <table id="order"></table>
+
+      <div class="alert" id="alert"></div>
+
+      <div class="actions">
+        <button class="p" id="send" onclick="sendCallout()">Send callout</button>
+        <button class="g" onclick="skipTwoWeeks()">Skip ahead 2 weeks</button>
+        <button class="g" onclick="resetAll()">Reset</button>
+      </div>
+      <div class="log" id="log"></div>
+
+      <div id="loadWrap">
+        <h3>Who's carrying the load, who's gone quiet</h3>
+        <table id="load"></table>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="phone">
+      <div class="who"><span id="phoneWho"></span><span>9:41</span></div>
+      <div id="phone"></div>
+    </div>
+    <div class="legend" id="legend"></div>
+  </section>
+</main>
+
+<script>
+// ---- Illustrative model. Borrows the real ranking weights (0.60 / 0.25 / 0.15). ----
+const W={prox:0.60,acc:0.25,cap:0.15}, HORIZON=45;
+const STAGES=[
+  {k:0,t:'Today'},
+  {k:1,t:'1 · A miss isn\'t a no'},
+  {k:2,t:'2 · A way back'},
+  {k:3,t:'3 · Handlers can see why'}
+];
+const CASES={
+  mite:{
+    name:'Meteor Mite', poss:'her', handler:'Kip', mins:19,
+    callout:'Callout A-1042 · structural-entry · Eastgate',
+    quote:'Kip on 4 Sep: "Meteor Mite\'s been texting me all week asking if something\'s broken because it\'s so quiet... And The Gale hasn\'t stopped, like, at all, same week, same city." Kip added: "all the way to one side or all the way to the other, no middle."',
+    legend:'<b>What Meteor Mite sees. Kip can\'t see this screen.</b> Meteor Mite and The Gale are Kip\'s two responders, both in Eastgate. Since 4.2 Meteor Mite\'s pings dried up while The Gale\'s went up. Kip has two cards side by side that "might as well be two different products".',
+    scene:''
+  },
+  vesper:{
+    name:'Vesper', poss:'their', handler:'Aunt Dot', mins:19,
+    callout:'Callout A-1042 · structural-entry',
+    quote:'Aunt Dot on 3 Sep: "It didn\'t used to feel like a fair race, phone to stairs, and now it does, and he loses it more than he wins it." Aunt Dot also described quiet stretches where "the phone just sits there and sits there". She hadn\'t put the two together until asked.',
+    legend:'<b>What Vesper sees. Aunt Dot can\'t see this screen.</b> Aunt Dot watches the console; Vesper holds the phone. In the interview the phone buzzes before Vesper reaches it, then goes to someone else. One account only, and it leans toward "slow to answer" rather than "push didn\'t arrive".',
+    scene:'Phone is across the room. Reaching for it...'
+  }
+};
+// How other responders behave when asked (fixed so the demo is predictable)
+const others=[
+  {n:'Nightwell', mins:12, acc:0.80, ans:'turns it down (busy)', load:'carrying a lot'},
+  {n:'The Gale',  mins:15, acc:0.75, ans:'turns it down (busy)', load:'carrying a lot'},
+  {n:'Stormwrack',mins:22, acc:0.70, ans:'takes it',             load:'carrying a lot'}
+];
+let C=CASES.mite, caseKey='mite', stage=0, standing=0.05, busy=false, timer=null, walkTimers=[], status={}, reason={}, phoneView='idle', clock=60, lastOutcome='', wait=60, reach=75, delivered=true, simulate=true;
+const $=id=>document.getElementById(id);
+const clamp=x=>Math.max(0,Math.min(1,x));
+const N=()=>C.name;
+
+function score(p){
+  const prox=p.mins>=HORIZON?0:1-p.mins/HORIZON;
+  return W.prox*prox+W.acc*p.acc+W.cap*1;
+}
+function isQuiet(){return standing<0.25}
+function buildOrder(){
+  const list=[...others.map(o=>({...o})),{n:N(),mins:C.mins,acc:standing,me:true}];
+  list.sort((a,b)=>score(b)-score(a));
+  reason={};
+  list.forEach(p=>reason[p.n]=p.me?(isQuiet()?'Low recent acceptance, rarely reached':'Normal'):'Closest / good record');
+  if(stage>=2 && isQuiet() && C.mins<=20){        // "well placed" is a placeholder rule
+    const i=list.findIndex(p=>p.me);
+    const [v]=list.splice(i,1); list.unshift(v);
+    reason[N()]='Second chance: quiet for weeks, well placed for this one';
+    v.second=true;
+  }
+  return list;
+}
+
+// ---- Rendering ----
+function renderHeader(){
+  $('cases').innerHTML='<span>Whose screen:</span>'+Object.entries(CASES).map(([k,c])=>
+    `<button class="${k===caseKey?'on':''}" onclick="setCase('${k}')">${c.name} · handler ${c.handler}</button>`).join('');
+  $('stages').innerHTML='<span>What\'s built:</span>'+STAGES.map(s=>
+    `<button class="${s.k===stage?'on':''}" onclick="setStage(${s.k})">${s.t}</button>`).join('');
+  $('barHandler').textContent='Handler: '+C.handler;
+  $('barCallout').textContent=C.callout;
+  $('quote').textContent=C.quote;
+  $('phoneWho').textContent=N()+' · '+C.poss+' phone';
+  $('legend').innerHTML=C.legend;
+}
+function standLabel(a){return a<0.25?'quiet':a<0.45?'coming back':a<0.7?'steady':'strong'}
+function renderOrder(){
+  const list=buildOrder();
+  $('orderHint').textContent=stage>=3
+    ?'Each name now has a reason, so the order is no longer a mystery.'
+    :'Today the console shows a list, not the reasons behind it.';
+  $('order').innerHTML='<tr><th>#</th><th>Responder</th><th>Away</th>'+(stage>=3?'<th>Why this order</th>':'')+'<th>Status</th></tr>'+
+    list.map((p,i)=>`<tr class="${p.me?'me':''}"><td>${i+1}</td><td>${p.n}${p.second?' <span class="chip s">second chance</span>':''}</td><td>${p.mins} min</td>`+
+      (stage>=3?`<td>${reason[p.n]}</td>`:'')+
+      `<td>${status[p.n]||'<span class="muted">waiting</span>'}</td></tr>`).join('');
+  $('loadWrap').style.display=stage>=3?'block':'none';
+  const v=isQuiet()?['quiet','q']:(standing<0.45?['coming back','s']:['back in rotation','ok']);
+  const bar=a=>`<td><div class="meter" style="width:90px"><i style="width:${Math.round(a*100)}%"></i></div><span class="muted">${standLabel(a)}</span></td>`;
+  $('load').innerHTML='<tr><th>Responder</th><th>This week</th><th>Standing</th></tr>'+
+    others.map(o=>`<tr><td>${o.n}</td><td><span class="chip b">${o.load}</span></td>${bar(o.acc)}</tr>`).join('')+
+    `<tr class="me"><td>${N()}</td><td><span class="chip ${v[1]}">${v[0]}</span> <span class="muted">${isQuiet()?'(not asked in weeks)':''}</span></td>${bar(standing)}</tr>`;
+  $('send').disabled=busy;
+}
+function standingCard(){
+  if(stage<2) return `<div class="card"><div class="muted">No status shown today. A quiet phone just looks like a quiet phone.</div></div>`;
+  const quiet=isQuiet();
+  return `<div class="card hl"><b>${quiet?'You\'ve been quiet for a while.':'You\'re getting back in rotation.'}</b>
+    <div class="muted" style="margin:4px 0 8px">${quiet?'We\'ll offer you the next callout you\'re well placed for, and tell you when we do.':'Thanks for taking jobs. Keep going and your standing keeps rising.'}</div>
+    <div class="meter"><i style="width:${Math.round(standing*100)}%"></i></div>
+    <div class="muted" style="margin-top:4px">Your standing</div></div>`;
+}
+function renderPhone(){
+  let h='';
+  if(phoneView==='idle'){
+    h=`<h2>Home</h2>${standingCard()}<div class="muted">No callouts right now. They'll show up here when one comes in.</div>`;
+  }else if(phoneView==='ping'){
+    h=`<h2>Callout A-1042</h2>
+      ${stage>=2?'<span class="chip s">Second chance · close to you</span>':''}
+      <div class="muted" style="margin-top:6px">Structural-entry · ${C.mins} min away</div>
+      <div class="clock" id="clock">${clock}</div><div class="muted" style="text-align:center">seconds to answer</div>
+      ${C.scene?`<div class="muted" style="text-align:center;margin-top:4px"><i>${C.scene}</i></div>`:''}
+      <div class="two"><button class="go" onclick="answers('taken')">Take it</button><button onclick="answers('declined')">Turn down</button></div>
+      <div class="muted" style="margin-top:12px">Don't tap anything and let the timer run out to see what a miss does.</div>`;
+  }else if(phoneView==='result'){
+    h=`<h2>${lastOutcome==='taken'?'You\'re on it':lastOutcome==='declined'?'Turned down':'Offer expired'}</h2>
+       <div class="card ${lastOutcome==='taken'?'hl':''}">${resultText()}</div>${standingCard()}`;
+  }
+  $('phone').innerHTML=h;
+}
+function resultText(){
+  if(lastOutcome==='taken') return stage>=2?'Counts extra toward getting you back in rotation.':'Thanks. Your standing goes up a little.';
+  if(lastOutcome==='declined') return 'No problem. We\'ll ask the next person. A turn-down counts as a turn-down.';
+  if(stage>=1) return 'The offer ran out. We can\'t be sure it reached you, so this counts for less than turning it down.';
+  return 'The offer ran out. This counts the same as turning it down, and lowers how often you\'re asked.';
+}
+function say(msg){const l=$('log'); if(l.dataset.fresh!=='0'){l.innerHTML='';l.dataset.fresh='0'} l.innerHTML+=`<div>${msg}</div>`}
+function showAlert(on){
+  const a=$('alert');
+  if(on && stage>=3){
+    a.style.display='block';
+    a.innerHTML=`<b>Heads-up for ${C.handler}:</b> ${N()} has just been pinged. <span id="aclock">${clock}</span>s left.
+      <div class="muted">Aunt Dot asked for this (the phone buzzes through a ceiling before anyone reaches it). It isn't in the brief yet.</div>`;
+  }else a.style.display='none';
+}
+
+// ---- Flow ----
+function sendCallout(){
+  if(busy) return;
+  busy=true; status={}; phoneView='idle'; $('log').dataset.fresh='1';
+  say('Callout sent. Asking down the list.');
+  renderOrder(); renderPhone();
+  walk(buildOrder(),0);
+}
+function walk(list,i){
+  if(i>=list.length){ say('<b>Nobody took it.</b> Untaken callout.'); finish(); return }
+  const p=list[i];
+  if(p.me){                                           // the quiet responder's turn: wait for the human
+    status[N()]='<span class="chip s">asking now…</span>'; renderOrder();
+    say(`Asking ${N()}… (${wait}s to answer)`); phoneView=delivered?'ping':'idle'; clock=wait; renderPhone(); showAlert(delivered);
+    if(!delivered) say(`The push never reached ${N()}'s phone.`);
+    clearInterval(timer);
+    timer=setInterval(()=>{clock-=4; const c=$('clock'); if(c)c.textContent=Math.max(clock,0);
+      const a=$('aclock'); if(a)a.textContent=Math.max(clock,0);
+      const elapsed=wait-clock;
+      if(simulate && delivered && elapsed>=reach){ say(`${N()} gets to the phone after about ${reach}s.`); answers('taken'); return }
+      if(clock<=0) answers('missed')},150);
+    window._resume=()=>walk(list,i+1);
+    return;
+  }
+  status[p.n]='<span class="chip s">asking now…</span>'; renderOrder();
+  walkTimers.push(setTimeout(()=>{
+    if(p.ans==='takes it'){
+      status[p.n]='<span class="chip ok">took it</span>';
+      say(`<b>${p.n} took it.</b>`);
+      list.slice(i+1).forEach(q=>{status[q.n]='<span class="muted">not reached</span>'});
+      if(list.slice(i+1).some(q=>q.me)) say(`${N()} was never asked: too far down the list to be reached.`);
+      finish();
+    }else{
+      status[p.n]='<span class="chip">turned down</span>'; say(`${p.n} turned it down.`);
+      renderOrder(); walk(list,i+1);
+    }
+  },800));
+}
+function answers(a){
+  clearInterval(timer); lastOutcome=a; showAlert(false);
+  if(a==='taken'){
+    standing=clamp(standing+(stage>=2?0.16:0.08));
+    status[N()]='<span class="chip ok">took it</span>';
+    say(`<b>${N()} took it.</b>`);
+    others.forEach(o=>{if(!status[o.n]) status[o.n]='<span class="muted">not needed</span>'});
+    phoneView='result'; renderPhone(); finish(); return;
+  }
+  standing=clamp(standing-(a==='missed'&&stage>=1?0.03:0.12));
+  status[N()]=a==='missed'?'<span class="chip b">missed</span>':'<span class="chip">turned down</span>';
+  say(a==='missed'
+    ?(stage>=1?`${N()} missed it. Scored lightly, not as a turn-down.`:`${N()} missed it. Scored the same as a turn-down.`)
+    :`${N()} turned it down.`);
+  phoneView='result'; renderPhone(); renderOrder();
+  walkTimers.push(setTimeout(()=>window._resume&&window._resume(),800));
+}
+function finish(){busy=false; renderOrder()}
+function skipTwoWeeks(){
+  if(busy) return;
+  if(stage>=2) standing=clamp(standing+(0.5-standing)*0.4);   // eases toward neutral (the 2019 TODO)
+  $('log').dataset.fresh='1';
+  say(stage>=2
+    ?`Two weeks pass. ${N()}'s standing eases back toward neutral on its own.`
+    :`Two weeks pass. Nothing changes: scores never recover on their own, and ${N()} still isn't asked.`);
+  phoneView='idle'; status={}; renderOrder(); renderPhone();
+}
+function setWait(s){wait=s; resetAll()}
+function renderWait(){
+  $('waitRow').innerHTML='<span>Ping wait:</span>'+[60,90].map(s=>
+    `<button class="${s===wait?'on':''}" onclick="setWait(${s})">${s} seconds${s===60?' (4.2, today)':' (before 4.2)'}</button>`).join('');
+  $('reachRow').innerHTML=`<span>Assume:</span>
+    <label style="font-size:13px"><input type="checkbox" ${simulate?'checked':''} onchange="simulate=this.checked;resetAll()"> Play out ${N()}'s response</label>
+    <label style="font-size:13px;margin-left:10px">takes about <b id="reachVal">${reach}</b>s to reach the phone
+      <input type="range" min="10" max="120" step="5" value="${reach}" oninput="reach=+this.value;$('reachVal').textContent=reach"></label>
+    <label style="font-size:13px;margin-left:10px"><input type="checkbox" ${delivered?'checked':''} onchange="delivered=this.checked;resetAll()"> Push is delivered</label>
+    <span style="min-width:0;margin-left:10px">Reach time is a guess. We have no response-time data.</span>`;
+}
+function setStage(k){stage=k; resetAll()}
+function setCase(k){caseKey=k; C=CASES[k]; resetAll()}
+function resetAll(){
+  clearInterval(timer); walkTimers.forEach(clearTimeout); walkTimers=[];
+  busy=false; standing=0.05; status={}; phoneView='idle'; showAlert(false);
+  $('log').dataset.fresh='1'; $('log').innerHTML='<span class="muted">Nothing sent yet.</span>';
+  renderHeader(); renderWait(); renderOrder(); renderPhone();
+}
+resetAll();
+</script>
+</body>
+</html>
